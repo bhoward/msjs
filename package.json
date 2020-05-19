@@ -1,0 +1,15 @@
+{
+  "name": "msjs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "source-map-support": "^0.5.19"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "bhoward@depauw.edu",
+  "license": "ISC"
+}

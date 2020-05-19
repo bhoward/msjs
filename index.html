@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Scala.js Demo</title>
+  </head>
+  <body>
+    <!-- Include Scala.js compiled code -->
+    <script type="text/javascript" src="./target/scala-2.13/miniscala-js-fastopt.js"></script>
+
+    <textarea id="src" rows="10" cols="80" wrap="off">
+package scalaparser
+
+/**
+ * Created by haoyi on 4/26/15.
+ */
+object Main {
+  def main(args: Array[String]): Unit = {
+    println("Hello World!")
+  }
+}
+    </textarea>
+    <button id="run-parser-button" type="button" onclick="runParser()">Run Parser</button>
+  </body>
+</html>
