@@ -3,8 +3,8 @@ package edu.depauw.scales
 import org.scalajs.dom
 import org.scalajs.dom.document
 import scala.scalajs.js.annotation.JSExportTopLevel
-import fastparse._
-import scalaparse.Scala
+
+import scala.meta._
 
 object demo {
   def appendPar(targetNode: dom.Node, text: String): Unit = {
@@ -28,12 +28,8 @@ object demo {
     val src = document.getElementById("src").asInstanceOf[dom.html.TextArea].value
 
     appendPre(document.body, src)
-    
-    parse(src, Scala.CompilationUnit(_)) match {
-      case f: Parsed.Failure =>
-        appendPar(document.body, s"Failed: $f")
-      case s: Parsed.Success[_] =>
-        appendPar(document.body, s"Succeeded at ${s.index} / ${src.length}")
-    }
+
+    val tree = src.parse[Stat].get
+    appendPar(document.body, s"Scalameta produces $tree")
   }
 }
