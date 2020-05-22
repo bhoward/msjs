@@ -6,7 +6,7 @@ import scala.scalajs.js.annotation.JSExportTopLevel
 
 import scala.meta._
 
-object demo {
+object Demo {
   def appendPar(targetNode: dom.Node, text: String): Unit = {
     val parNode = document.createElement("p")
     parNode.textContent = text
@@ -29,7 +29,10 @@ object demo {
 
     appendPre(document.body, src)
 
-    val tree = src.parse[Stat].get
+    val tree = src.parse[Source].get
+    val utree = Utils.desugar(tree)
     appendPar(document.body, s"Scalameta produces $tree")
+    appendPar(document.body, s"Unsugared is $utree")
+    appendPar(document.body, s"  == ${utree.structure}")
   }
 }
