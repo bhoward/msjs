@@ -65,14 +65,14 @@ object Utils {
       val gt2 = q"$gterm.withFilter { ..case $cs }"
       collectForYield(gpat, gt2, rest, body)
     case Enumerator.Val(pat, term) :: rest =>
-      val x = Pat.fresh()
-      val x2 = Pat.fresh()
+      val x = Term.fresh("fresh$")
+      val x2 = Term.fresh("fresh$")
       val b2 = Term.Block(List(
-        Defn.Val(Nil, List(Pat.Bind(x2, pat)), None, term),
-        Term.Tuple(List(x.name, x2.name))
+        Defn.Val(Nil, List(Pat.Bind(Pat.Var(x2), pat)), None, term),
+        Term.Tuple(List(x, x2))
       ))
       val p2 = Pat.Tuple(List(gpat, pat))
-      val t2 = collectForYield(Pat.Bind(x, gpat), gterm, Nil, b2)
+      val t2 = collectForYield(Pat.Bind(Pat.Var(x), gpat), gterm, Nil, b2)
       collectForYield(p2, t2, rest, body)
   }
 }
