@@ -29,10 +29,14 @@ object Demo {
 
     appendPre(document.body, src)
 
-    val tree = src.parse[Source].get
-    val utree = Utils.desugar(tree)
-    appendPar(document.body, s"Scalameta produces $tree")
-    appendPar(document.body, s"Unsugared is $utree")
-    appendPar(document.body, s"  == ${utree.structure}")
+    try {
+      val tree = src.parse[Source].get
+      val utree = Utils.desugar(tree)
+      appendPre(document.body, s"Scalameta produces $tree")
+      appendPre(document.body, s"Unsugared is ${utree.syntax}")
+      appendPar(document.body, s"  == ${utree.structure}")
+    } catch {
+      case e: Throwable => appendPar(document.body, s"Error: $e")
+    }
   }
 }
