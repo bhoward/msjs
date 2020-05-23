@@ -24,12 +24,19 @@ object Utils {
         val Enumerator.Generator(gpat, gterm) :: es = mapRefutable(enums) // MatchError shouldn't happen
         apply(collectForYield(gpat, gterm, es, body))
       }
+      // TODO Next do pattern matching...
       case _ => super.apply(tree)
     }
   }
 
   def mapRefutable(enums: List[Enumerator]): List[Enumerator] = enums map {
-    case Enumerator.Generator(pat, term) if isRefutable(pat) => ???
+    case Enumerator.Generator(pat, term) if isRefutable(pat) =>
+      val cs = List(
+        p"case $pat => true",
+        p"case _ => false"
+      )
+      val t2 = q"$term.withFilter { ..case $cs }"
+      Enumerator.Generator(pat, t2)
     case e => e
   }
 
@@ -37,10 +44,9 @@ object Utils {
     // TODO really need to know the expected type to do this properly
     case Pat.Var(_) => false
     case _: Pat.Wildcard => false
-    case Pat.Typed(_, _) => false
     case Pat.Tuple(pats) => pats.exists(isRefutable)
     case Pat.Bind(_, p) => isRefutable(p)
-    case _ => true
+    case _ => true // this is overly pessimistic, e.g., on "x : T" where T is known to include type being matched
   }
 
   // TODO do we even want this for a functional subset?
@@ -55,10 +61,18 @@ object Utils {
       val cs = List(p"case $gpat => $rhs")
       q"$gterm.flatMap { ..case $cs }"
     case Enumerator.Guard(test) :: rest =>
-      val f = Term.PartialFunction(List(Case(gpat, None, test)))
-      val gt2 = q"$gterm.withFilter($f)"
+      val cs = List(p"case $gpat => $test")
+      val gt2 = q"$gterm.withFilter { ..case $cs }"
       collectForYield(gpat, gt2, rest, body)
     case Enumerator.Val(pat, term) :: rest =>
-      ???
+      val x = Pat.fresh()
+      val x2 = Pat.fresh()
+      val b2 = Term.Block(List(
+        Defn.Val(Nil, List(Pat.Bind(x2, pat)), None, term),
+        Term.Tuple(List(x.name, x2.name))
+      ))
+      val p2 = Pat.Tuple(List(gpat, pat))
+      val t2 = collectForYield(Pat.Bind(x, gpat), gterm, Nil, b2)
+      collectForYield(p2, t2, rest, body)
   }
 }
