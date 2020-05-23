@@ -55,7 +55,9 @@ object Utils {
       val cs = List(p"case $gpat => $rhs")
       q"$gterm.flatMap { ..case $cs }"
     case Enumerator.Guard(test) :: rest =>
-      ???
+      val f = Term.PartialFunction(List(Case(gpat, None, test)))
+      val gt2 = q"$gterm.withFilter($f)"
+      collectForYield(gpat, gt2, rest, body)
     case Enumerator.Val(pat, term) :: rest =>
       ???
   }

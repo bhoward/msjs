@@ -7,9 +7,10 @@ import scala.meta._
 object UtilsTests extends TestSuite {
   val tests = Tests {
     def runTest(src: String, expected: String) = {
-      val tree = src.parse[Source].get
-      val utree = Utils.desugar(tree)
-      assert(expected == utree.syntax)
+      val stree = src.parse[Source].get
+      val dtree = Utils.desugar(stree)
+      val etree = expected.parse[Source].get
+      assert(etree.structure == dtree.structure)
     }
 
     test("binary operator") {
@@ -34,11 +35,25 @@ object UtilsTests extends TestSuite {
 
     test("for comprehension") {
       runTest("object a { val b = for (c <- d) yield e }",
-              "object a {\n  val b = d.map({\n    case c => e\n  })\n}")
+              "object a { val b = d.map({ case c => e }) }")
       runTest("object a { val b = for (c <- d; e <- f) yield (c * e) }",
-              "object a {\n  val b = d.flatMap({\n    case c =>\n      f.map({\n        case e =>\n          c.*(e)\n      })\n  })\n}")
+              "object a { val b = d.flatMap({ case c => f.map({ case e => c.*(e) }) }) }")
       runTest("object a { val b = for (c <- d + e; f <- g * h) yield (c % f) }",
-              "object a {\n  val b = d.+(e).flatMap({\n    case c =>\n      g.*(h).map({\n        case f =>\n          c.%(f)\n      })\n  })\n}")
+              "object a { val b = d.+(e).flatMap({ case c => g.*(h).map({ case f => c.%(f) }) }) }")
+    }
+
+    test("for comprehension guard") {
+      runTest("object a { val b = for (c <- d; if e) yield f }",
+              "object a { val b = d.withFilter({ case c => e }).map({ case c => f}) }")
+      // Example from the spec
+      val src = """object a {
+                  |  for  { i <- 1 until n
+                  |         j <- 1 until i
+                  |         if isPrime(i+j)
+                  |  } yield (i, j)
+                  |}""".stripMargin
+      val out = "object a { 1.until(n).flatMap({ case i => 1.until(i).withFilter({ case j => isPrime(i.+(j)) }).map({ case j => (i, j) }) }) }"
+      runTest(src, out)
     }
   }
 }
