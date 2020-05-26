@@ -5,24 +5,42 @@ import scala.meta._
 object Utils {
   val desugar = new Transformer {
     override def apply(tree: Tree): Tree = tree match {
-      case Term.ApplyInfix(lhs, op, Nil, args) =>
+      // Replace infix operators with method calls
+      case Term.ApplyInfix(lhs, op, Nil, args) => {
         if (op.value.endsWith(":")) {
           // TODO this is not quite correct for call-by-value op
           apply(Term.Apply(Term.Select(args.head, op), List(lhs)))
         } else {
           apply(Term.Apply(Term.Select(lhs, op), args))
         }
-      case Term.ApplyUnary(Term.Name(op), arg) =>
-        apply(Term.Apply(Term.Select(arg, Term.Name("unary_" + op)), Nil))
-      case Term.Interpolate(nm, lits, args) =>
-        apply(Term.Apply(Term.Select(Term.New(Init(Type.Name("StringContext"), Name.Anonymous(), List(lits))), nm), args))
-      case Term.For(enums, body) => {
-        val Enumerator.Generator(gpat, gterm) :: es = mapRefutable(enums) // MatchError shouldn't happen
-        apply(collectForEach(gpat, gterm, es, body))
       }
+      // Replace unary operators with method calls
+      case Term.ApplyUnary(Term.Name(op), arg) => {
+        apply(Term.Apply(Term.Select(arg, Term.Name("unary_" + op)), Nil))
+      }
+      // Replace string interpolation with method calls
+      case Term.Interpolate(nm, lits, args) => {
+        apply(Term.Apply(Term.Select(Term.New(Init(Type.Name("StringContext"), Name.Anonymous(), List(lits))), nm), args))
+      }
+      // Replace for-yield loops with method calls
       case Term.ForYield(enums, body) => {
         val Enumerator.Generator(gpat, gterm) :: es = mapRefutable(enums) // MatchError shouldn't happen
         apply(collectForYield(gpat, gterm, es, body))
+      }
+      // Replace partial functions with matches -- need types for this?
+      case Term.PartialFunction(cases: List[Case]) => {
+        val x = Term.fresh("fresh$")
+        val defCases = (cases.map {
+            case Case(pat, cond, _) => Case(pat, cond, Lit.Boolean(true))
+          }) :+ Case(Pat.Wildcard(), None, Lit.Boolean(false))
+        Term.NewAnonymous(Template(Nil, Nil, Self(Name("this"), None), List(
+          Defn.Def(Nil, Term.Name("apply"), Nil, List(List(Term.Param(Nil, x, None, None))), None,
+            Term.Match(x, cases)
+          ),
+          Defn.Def(Nil, Term.Name("isDefinedAt"), Nil, List(List(Term.Param(Nil, x, None, None))), None,
+            Term.Match(x, defCases)
+          )
+        )))
       }
       // TODO Next do pattern matching...
       case _ => super.apply(tree)
@@ -48,9 +66,6 @@ object Utils {
     case Pat.Bind(_, p) => isRefutable(p)
     case _ => true // this is overly pessimistic, e.g., on "x : T" where T is known to include type being matched
   }
-
-  // TODO do we even want this for a functional subset?
-  def collectForEach(gpat: Pat, gterm: Term, enums: List[Enumerator], body: Term): Term = ???
 
   def collectForYield(gpat: Pat, gterm: Term, enums: List[Enumerator], body: Term): Term = enums match {
     case Nil => 
