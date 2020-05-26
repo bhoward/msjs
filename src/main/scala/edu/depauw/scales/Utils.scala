@@ -28,19 +28,34 @@ object Utils {
         apply(collectForYield(gpat, gterm, es, body))
       }
       // Replace partial functions with matches -- need types for this?
-      case Term.PartialFunction(cases: List[Case]) => {
+      case Term.PartialFunction(cases) => {
         val x = Term.fresh("fresh$")
         val defCases = (cases.map {
             case Case(pat, cond, _) => Case(pat, cond, Lit.Boolean(true))
           }) :+ Case(Pat.Wildcard(), None, Lit.Boolean(false))
-        Term.NewAnonymous(Template(Nil, Nil, Self(Name("this"), None), List(
+        apply(Term.NewAnonymous(Template(Nil, Nil, Self(Name("this"), None), List(
           Defn.Def(Nil, Term.Name("apply"), Nil, List(List(Term.Param(Nil, x, None, None))), None,
             Term.Match(x, cases)
           ),
           Defn.Def(Nil, Term.Name("isDefinedAt"), Nil, List(List(Term.Param(Nil, x, None, None))), None,
             Term.Match(x, defCases)
           )
-        )))
+        ))))
+      }
+      // Replace val pattern bindings with matches
+      case Term.Block(stats) if stats.exists {
+          case Defn.Val(_, List(_ : Pat.Var), _, _) => false
+          case Defn.Val(_, _, _, _) => true
+          case _ => false
+        } => {
+        apply(Term.Block(stats.foldRight(List[Stat]()) {
+          case (vardef @ Defn.Val(_, List(_ : Pat.Var), _, rhs), body) =>
+            vardef :: body
+          case (Defn.Val(_, List(pat), _, rhs), body) =>
+            List(Term.Match(rhs, List(Case(pat, None, Term.Block(body)))))
+          case (stat, body) =>
+            stat :: body
+        }))
       }
       // TODO Next do pattern matching...
       case _ => super.apply(tree)
