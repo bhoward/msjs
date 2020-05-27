@@ -42,7 +42,7 @@ object Utils {
           )
         ))))
       }
-      // Replace val pattern bindings with matches
+      // Replace val pattern bindings (in blocks) with matches
       case Term.Block(stats) if stats.exists {
           case Defn.Val(_, List(_ : Pat.Var), _, _) => false
           case Defn.Val(_, _, _, _) => true
@@ -57,7 +57,13 @@ object Utils {
             stat :: body
         }))
       }
-      // TODO Next do pattern matching...
+      // Replace pattern matching with conditionals, options, extractors, ...
+      case Term.Match(v, case0 :: cases) => {
+        val t1 = cases.foldLeft(expandMatch(v, case0)) {
+          case (t, c) => q"$t.orElse(${expandMatch(v, c)})"
+        }
+        apply(q"$t1.getOrElse(throw new MatchError($v))")
+      }
       case _ => super.apply(tree)
     }
   }
@@ -104,5 +110,18 @@ object Utils {
       val p2 = Pat.Tuple(List(gpat, pat))
       val t2 = collectForYield(Pat.Bind(Pat.Var(x), gpat), gterm, Nil, b2)
       collectForYield(p2, t2, rest, body)
+  }
+
+  def expandMatch(v: Term, c: Case): Term = {
+    def aux(t: Term, pats: List[Pat], body: Term): List[Stat] = pats match {
+      case Nil => List(q"Some($body)")
+      case (x @ Pat.Var(_)) :: rest => q"val $x = $t" :: aux(t, rest, body)
+      case Pat.Bind(x @ Pat.Var(_), p) :: rest => q"val $x = $t" :: aux(t, p :: rest, body)
+      case (lit : Lit) :: rest => List(q"if ($t != $lit) None else { ..${aux(t, rest, body)} }")
+      // TODO: tuples, extractors, wildcards, typed, interpolations? alternatives?
+      case _ :: rest => List(q"???")
+    }
+
+    Term.Block(aux(v, List(c.pat), c.body))
   }
 }
