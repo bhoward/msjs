@@ -16,7 +16,8 @@ object Utils {
       }
       // Replace unary operators with method calls
       case Term.ApplyUnary(Term.Name(op), arg) => {
-        apply(Term.Apply(Term.Select(arg, Term.Name("unary_" + op)), Nil))
+        val uop = Term.Name("unary_" + op)
+        q"$arg.$uop"
       }
       // Replace string interpolation with method calls
       case Term.Interpolate(nm, lits, args) => {
@@ -58,11 +59,19 @@ object Utils {
         }))
       }
       // Replace pattern matching with conditionals, options, extractors, ...
-      case Term.Match(v, case0 :: cases) => {
-        val t1 = cases.foldLeft(expandMatch(v, case0)) {
-          case (t, c) => q"$t.orElse(${expandMatch(v, c)})"
+      case Term.Match(x : Term.Name, case0 :: cases) => {
+        val t1 = cases.foldLeft(expandMatch(x, case0)) {
+          case (t, c) => q"$t.orElse(${expandMatch(x, c)})"
         }
-        apply(q"$t1.getOrElse(throw new MatchError($v))")
+        apply(q"$t1.getOrElse(throw new MatchError($x))")
+      }
+      case Term.Match(v, case0 :: cases) => {
+        val x = Term.fresh("fresh$")
+        val init = Defn.Val(Nil, List(Pat.Var(x)), None, v)
+        val t1 = cases.foldLeft(expandMatch(x, case0)) {
+          case (t, c) => q"$t.orElse(${expandMatch(x, c)})"
+        }
+        apply(q"{ ..${List(init, t1)} }.getOrElse(throw new MatchError($v))")
       }
       case _ => super.apply(tree)
     }
@@ -114,12 +123,30 @@ object Utils {
 
   def expandMatch(v: Term, c: Case): Term = {
     def aux(t: Term, pats: List[Pat], body: Term): List[Stat] = pats match {
-      case Nil => List(q"Some($body)")
-      case (x @ Pat.Var(_)) :: rest => q"val $x = $t" :: aux(t, rest, body)
-      case Pat.Bind(x @ Pat.Var(_), p) :: rest => q"val $x = $t" :: aux(t, p :: rest, body)
-      case (lit : Lit) :: rest => List(q"if ($t != $lit) None else { ..${aux(t, rest, body)} }")
-      // TODO: tuples, extractors, wildcards, typed, interpolations? alternatives?
-      case _ :: rest => List(q"???")
+      case Nil =>
+        List(q"Some($body)")
+      case (x @ Pat.Var(_)) :: rest =>
+        q"val $x = $t" :: aux(t, rest, body)
+      case (_ : Pat.Wildcard) :: rest =>
+        aux(t, rest, body) // we don't need no stinking side-effects
+      case Pat.Bind(x @ Pat.Var(_), p) :: rest =>
+        q"val $x = $t" :: aux(t, p :: rest, body)
+      case (lit : Lit) :: rest =>
+        List(q"if ($t != $lit) None else { ..${aux(t, rest, body)} }")
+      case (nm : Term.Name) :: rest =>
+        List(q"if ($t != $nm) None else { ..${aux(t, rest, body)} }")
+      case (Pat.Typed(p, ty)) :: rest =>
+        List(q"if (!$t.isInstanceOf[$ty]) None else { ..${aux(t, p :: rest, body)} }")
+      case Pat.Tuple(ps) :: rest =>
+        ps.zip(1 to ps.length).foldRight(aux(t, rest, body)) {
+          case ((p, i), ss) => {
+            val n = Term.Name(s"_$i")
+            q"val $p = $t.$n" :: ss
+          }
+        }
+      // TODO: extractors (incl. infix), guards, interpolations? alternatives?
+      case _ :: rest =>
+        List(q"???")
     }
 
     Term.Block(aux(v, List(c.pat), c.body))
