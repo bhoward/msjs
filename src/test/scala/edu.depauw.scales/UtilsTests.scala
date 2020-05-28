@@ -155,7 +155,7 @@ object UtilsTests extends TestSuite {
     }
 
     test("val pattern") {
-      runTest("object a { val b = { val _ = 1; val () = (); val (c, d) = e; val F(G, h @ I()) = j; k } }",
+      runTest("object a { val b = { val _ = 1; val () = (); val (c, d) = e; val F(G(_), h @ I()) = j; k } }",
               """object a {
                 |  val b = {
                 |    {
@@ -169,7 +169,28 @@ object UtilsTests extends TestSuite {
                 |                  { val c = e._1
                 |                    val d = e._2
                 |                    Some {
-                |                      { ??? }.getOrElse(throw new MatchError(j))
+                |                      {
+                |                        F.unapply(j).flatMap(fresh$24 => {
+                |                          { val fresh$25 = fresh$24._1
+                |                            {
+                |                              G.unapply(fresh$25).flatMap(fresh$26 => {
+                |                                {
+                |                                  Some {
+                |                                    Some {
+                |                                      { val fresh$27 = fresh$24._2
+                |                                        { val h = fresh$27
+                |                                          if (I.unapply(fresh$27).unary_!) None
+                |                                          else { Some { Some { k } } }
+                |                                        }
+                |                                      }.getOrElse(throw new MatchError(fresh$24._2))
+                |                                    }
+                |                                  }
+                |                                }.getOrElse(throw new MatchError(fresh$26))
+                |                              })
+                |                            }
+                |                          }.getOrElse(throw new MatchError(fresh$24._1))
+                |                        })
+                |                      }.getOrElse(throw new MatchError(j))
                 |                    }
                 |                  }.getOrElse(throw new MatchError(e))
                 |                }
@@ -182,5 +203,7 @@ object UtilsTests extends TestSuite {
                 |  }
                 |}""".stripMargin)
     }
+
+    // TODO write a test for match...
   }
 }

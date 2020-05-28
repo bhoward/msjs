@@ -124,7 +124,7 @@ object Utils {
   def expandMatch(v: Term, c: Case): Term = {
     def aux(t: Term, pats: List[Pat], body: Term): List[Stat] = pats match {
       case Nil =>
-        List(q"Some($body)")
+        List(body)
       case (x @ Pat.Var(_)) :: rest =>
         q"val $x = $t" :: aux(t, rest, body)
       case (_ : Pat.Wildcard) :: rest =>
@@ -139,16 +139,57 @@ object Utils {
         List(q"if (!$t.isInstanceOf[$ty]) None else { ..${aux(t, p :: rest, body)} }")
       case Pat.Tuple(ps) :: rest =>
         ps.zip(1 to ps.length).foldRight(aux(t, rest, body)) {
+          case ((p : Term.Name, i), ss) => {
+            val n = Term.Name(s"_$i")
+            List(q"if ($t.$n != $p) None else { ..$ss }")
+          }
           case ((p, i), ss) => {
             val n = Term.Name(s"_$i")
             q"val $p = $t.$n" :: ss
           }
         }
-      // TODO: extractors (incl. infix), guards, interpolations? alternatives?
+      case Pat.Extract(head, ps) :: rest =>
+        ps match {
+          case Nil => {
+            List(q"if (!$head.unapply($t)) None else { ..${aux(t, rest, body)} }")
+          }
+          case (p : Term.Name) :: Nil => {
+            val x = Term.fresh("fresh$")
+            val par = Term.Param(Nil, x, None, None)
+            List(q"$head.unapply($t).flatMap(($par) => if ($x != $p) None else { ..${aux(t, rest, body)}})")
+          }
+          case p :: Nil => {
+            val x = Term.fresh("fresh$")
+            val par = Term.Param(Nil, x, None, None)
+            List(q"$head.unapply($t).flatMap(($par) => { val $p = $x; ..${aux(t, rest, body)}})")
+          }
+          case _ => {
+            val x = Term.fresh("fresh$")
+            val par = Term.Param(Nil, x, None, None)
+            val b = ps.zip(1 to ps.length).foldRight(aux(t, rest, body)) {
+              case ((p : Term.Name, i), ss) => {
+                val n = Term.Name(s"_$i")
+                List(q"if ($x.$n != $p) None else { ..$ss }")
+              }
+              case ((p, i), ss) => {
+                val n = Term.Name(s"_$i")
+                q"val $p = $x.$n" :: ss
+              }
+            }
+            List(q"$head.unapply($t).flatMap(($par) => { ..$b })")
+          }
+        }
+      case Pat.ExtractInfix(p, op, ps) :: rest =>
+        aux(t, Pat.Extract(op, p :: ps) :: rest, body)
+      // TODO: interpolations? alternatives?
       case _ :: rest =>
         List(q"???")
     }
 
-    Term.Block(aux(v, List(c.pat), c.body))
+    val b = c.cond match {
+      case Some(guard) => q"if ($guard) Some(${c.body}) else None"
+      case None => q"Some(${c.body})"
+    }
+    Term.Block(aux(v, List(c.pat), b))
   }
 }
