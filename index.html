@@ -9,17 +9,17 @@
     <script type="text/javascript" src="./target/scala-2.13/miniscala-js-fastopt.js"></script>
 
     <textarea id="src" rows="10" cols="80" wrap="off">
-package scalaparser
-
-/**
- * Created by haoyi on 4/26/15.
- */
-object Main {
-  def main(args: Array[String]): Unit = {
-    println("Hello World!")
+// Push the limits; flirt with stack overflow!
+object a {
+  val b = c(d) match {
+    case e => f(e)
+    case g @ H => i(g)
+    case j : K => l(j)
+    case (m, 0) => s(m)
+    case N("Hello", O(), P((q, r))) => v(q, r)
+    case t :: u :: Nil => t + u
   }
-}
-    </textarea>
+}</textarea>
     <button id="run-parser-button" type="button" onclick="runParser()">Run Parser</button>
   </body>
 </html>

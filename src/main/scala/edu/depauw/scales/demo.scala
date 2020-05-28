@@ -20,8 +20,7 @@ object Demo {
   }
 
   def main(args: Array[String]): Unit = {
-    appendPar(document.body, "Hello world!")
-    appendPar(document.body, "object a { val b = { case c :: Nil => d } }".parse[Source].get.syntax)
+    appendPar(document.body, "MiniScala-JS!")
   }
 
   @JSExportTopLevel("runParser")
