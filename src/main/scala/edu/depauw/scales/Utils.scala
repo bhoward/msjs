@@ -73,6 +73,9 @@ object Utils {
         }
         apply(q"{ ..${List(init, t1)} }.getOrElse(throw new MatchError($v))")
       }
+      // Figure out remaining desugarings, and what the toplevel looks like
+      // Typechecking
+      // Code generation
       case _ => super.apply(tree)
     }
   }

@@ -204,6 +204,100 @@ object UtilsTests extends TestSuite {
                 |}""".stripMargin)
     }
 
-    // TODO write a test for match...
+    test("match") {
+      runTest("""object a { val b = c(d) match {
+                |  case e => f(e)
+                |  case g @ H => i(g)
+                |  case j : K => l(j)
+                |  case (m, 0) => s(m)
+                |  case N("Hello", O(), P((q, r))) => v(q, r)
+                |  case t :: u :: Nil => t + u
+                |} }""".stripMargin,
+              """object a {
+                |  val b = {
+                |    val fresh$28 = c(d)
+                |    {
+                |      val e = fresh$28
+                |      Some(f(e))
+                |    }.orElse {
+                |      val g = fresh$28
+                |      if (fresh$28.!=(H)) None else {
+                |        Some(i(g))
+                |      }
+                |    }.orElse {
+                |      if (fresh$28.isInstanceOf[K].unary_!) None else {
+                |        val j = fresh$28
+                |        Some(l(j))
+                |      }
+                |    }.orElse {
+                |      val m = fresh$28._1
+                |      {
+                |        val fresh$31 = fresh$28._2
+                |        {
+                |          if (fresh$31.!=(0)) None else {
+                |            Some {
+                |              Some(s(m))
+                |            }
+                |          }
+                |        }
+                |      }.getOrElse(throw new MatchError(fresh$28._2))
+                |    }.orElse {
+                |      N.unapply(fresh$28).flatMap(fresh$29 => {
+                |        {
+                |          val fresh$32 = fresh$29._1
+                |          {
+                |            if (fresh$32.!=("Hello")) None else {
+                |              Some {
+                |                {
+                |                  val fresh$33 = fresh$29._2
+                |                  {
+                |                    if (O.unapply(fresh$33).unary_!) None else {
+                |                      Some {
+                |                        {
+                |                          val fresh$34 = fresh$29._3
+                |                          {
+                |                            P.unapply(fresh$34).flatMap(fresh$35 => {
+                |                              {
+                |                                val q = fresh$35._1
+                |                                val r = fresh$35._2
+                |                                Some {
+                |                                  Some {
+                |                                    Some(v(q, r))
+                |                                  }
+                |                                }
+                |                              }.getOrElse(throw new MatchError(fresh$35))
+                |                            })
+                |                          }
+                |                        }.getOrElse(throw new MatchError(fresh$29._3))
+                |                      }
+                |                    }
+                |                  }
+                |                }.getOrElse(throw new MatchError(fresh$29._2))
+                |              }
+                |            }
+                |          }
+                |        }.getOrElse(throw new MatchError(fresh$29._1))
+                |      })
+                |    }.orElse {
+                |      ::.unapply(fresh$28).flatMap(fresh$30 => {
+                |        val t = fresh$30._1
+                |        {
+                |          val fresh$36 = fresh$30._2
+                |          {
+                |            ::.unapply(fresh$36).flatMap(fresh$37 => {
+                |              val u = fresh$37._1
+                |              if (fresh$37._2.!=(Nil)) None else {
+                |                Some {
+                |                  Some(t.+(u))
+                |                }
+                |              }
+                |            })
+                |          }
+                |        }.getOrElse(throw new MatchError(fresh$30._2))
+                |      })
+                |    }
+                |  }.getOrElse(throw new MatchError(c(d)))
+                |}""".stripMargin)
+    }
   }
 }
